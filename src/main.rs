@@ -146,7 +146,31 @@ fn spawn_segment(mut commands: Commands, position: Position) -> Entity {
         .id()
 }
 
-fn spawn_snake(mut commands: Commands, mut segments: ResMut<SnakeSegments>) {
+fn spawn_snake(
+    mut commands: Commands,
+    mut segments: ResMut<SnakeSegments>,
+    mut last_tail_position: ResMut<LastTailPosition>,
+) {
+    for ent in &segments.0 {
+        commands.entity(*ent).despawn();
+    }
+    const START_POS: Position = Position { x: 3, y: 3 };
+    const START_DIR: Direction = Direction::Up;
+    const START_TAIL: Position = Position {
+        x: START_POS.x
+            + match START_DIR {
+                Direction::Left => 1,
+                Direction::Right => -1,
+                _ => 0,
+            },
+        y: START_POS.y
+            + match START_DIR {
+                Direction::Down => 1,
+                Direction::Up => -1,
+                _ => 0,
+            },
+    };
+    last_tail_position.0 = Some(START_TAIL);
     segments.0 = vec![
         commands
             .spawn_bundle(SpriteBundle {
@@ -161,13 +185,13 @@ fn spawn_snake(mut commands: Commands, mut segments: ResMut<SnakeSegments>) {
                 ..Default::default()
             })
             .insert(SnakeHead {
-                direction: Direction::Up,
+                direction: START_DIR,
             })
-            .insert(Position { x: 3, y: 3 })
+            .insert(START_POS)
             .insert(Size::new_square(0.8))
             .id(),
-        spawn_segment(commands, Position { x: 3, y: 2 }),
-    ]
+        spawn_segment(commands, START_TAIL),
+    ];
 }
 
 fn snake_movement_input(keyboard_input: Res<Input<KeyCode>>, mut heads: Query<&mut SnakeHead>) {
@@ -305,6 +329,7 @@ fn game_over(
     mut commands: Commands,
     mut reader: EventReader<GameOverEvent>,
     segments_res: ResMut<SnakeSegments>,
+    last_tail_position: ResMut<LastTailPosition>,
     food: Query<Entity, With<Food>>,
     segments: Query<Entity, With<SnakeSegment>>,
 ) {
@@ -312,6 +337,6 @@ fn game_over(
         for ent in food.iter().chain(segments.iter()) {
             commands.entity(ent).despawn();
         }
-        spawn_snake(commands, segments_res);
+        spawn_snake(commands, segments_res, last_tail_position);
     }
 }
